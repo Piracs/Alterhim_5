@@ -16,6 +16,11 @@ requirements = python3,kivy,setuptools,openpyxl
 
 orientation = portrait
 
+p4a.branch = develop
+android.api = 36
+android.minapi = 24
+android.ndk = 29
+
 fullscreen = 0
 
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
