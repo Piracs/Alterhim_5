@@ -33,41 +33,67 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Linux dependencies
-        if: runner.os == 'Linux'
         run: |
           sudo apt update
-          sudo apt -y install automake libltdl-dev
+          sudo apt install -y \
+            automake \
+            libltdl-dev \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libffi-dev \
+            libssl-dev \
+            cmake
 
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
           python -m pip install buildozer
 
-      - name: Check Buildozer
+      - name: Check environment
         run: |
+          echo "=== Python ==="
           python --version
-          java -version
-          buildozer --version
-          buildozer --help
 
-      - name: Prepare Android SDK, NDK and python-for-android
+          echo "=== Java ==="
+          java -version
+
+          echo "=== Buildozer ==="
+          buildozer --version
+
+      - name: Prepare Android environment
         run: |
-          sed -i.bak "s/# android.accept_sdk_license = False/android.accept_sdk_license = True/" buildozer.spec
-          sed -i.bak "s/#p4a.branch = master/p4a.branch = develop/" buildozer.spec
+          sed -i.bak \
+            "s/# android.accept_sdk_license = False/android.accept_sdk_license = True/" \
+            buildozer.spec
+
           buildozer android p4a -- --help
 
       - name: Build debug APK
         run: |
-          buildozer -v android debug
+          set -o pipefail
+          buildozer -v android debug 2>&1 | tee buildozer.log
 
-      - name: Show generated APK
+      - name: Show APK
         if: always()
         run: |
-          echo "=== bin directory ==="
+          echo "=== bin ==="
           ls -lah bin || true
 
-          echo "=== APK files ==="
+          echo "=== APK ==="
           find bin -type f -name "*.apk" -print || true
+
+      - name: Upload Buildozer log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buildozer-log
+          path: buildozer.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload APK
         if: success()
