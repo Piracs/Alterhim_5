@@ -45,8 +45,8 @@ jobs:
             libtool \
             pkg-config \
             zlib1g-dev \
-            libncurses5 \
             libstdc++6
+
 
       - name: Install Buildozer
         run: |
