@@ -18,74 +18,173 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ------------------------------------------------------------
+      # Python 3.14
+      # ------------------------------------------------------------
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.14"
 
+      # ------------------------------------------------------------
+      # Java 17
+      # ------------------------------------------------------------
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
           java-version: "17"
           distribution: "temurin"
 
+      # ------------------------------------------------------------
+      # Source code
+      # ------------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # ------------------------------------------------------------
+      # Linux build dependencies
+      # ------------------------------------------------------------
       - name: Install Linux dependencies
         run: |
           sudo apt update
+
           sudo apt install -y \
-            automake \
-            libltdl-dev \
             autoconf \
+            automake \
             libtool \
+            libltdl-dev \
             pkg-config \
             zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
             libffi-dev \
             libssl-dev \
-            cmake
+            cmake \
+            unzip \
+            zip
 
+      # ------------------------------------------------------------
+      # Buildozer
+      # ------------------------------------------------------------
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
-          python -m pip install buildozer
+          python -m pip install --upgrade buildozer
 
-      - name: Check environment
+      # ------------------------------------------------------------
+      # Check versions
+      # ------------------------------------------------------------
+      - name: Show build environment
         run: |
-          echo "=== Python ==="
+          echo "======================================"
+          echo "PYTHON"
+          echo "======================================"
           python --version
+          python -m pip --version
 
-          echo "=== Java ==="
+          echo "======================================"
+          echo "JAVA"
+          echo "======================================"
           java -version
 
-          echo "=== Buildozer ==="
+          echo "======================================"
+          echo "BUILDOZER"
+          echo "======================================"
           buildozer --version
 
-      - name: Prepare Android environment
+      # ------------------------------------------------------------
+      # Configure buildozer.spec for current p4a develop
+      # ------------------------------------------------------------
+      - name: Configure Android build
         run: |
-          sed -i.bak \
-            "s/# android.accept_sdk_license = False/android.accept_sdk_license = True/" \
-            buildozer.spec
+          python - <<'PY'
+          from pathlib import Path
 
+          path = Path("buildozer.spec")
+          text = path.read_text()
+
+          replacements = {
+              "android.api = 33": "android.api = 36",
+              "android.minapi = 24": "android.minapi = 24",
+              "android.ndk = 25b": "android.ndk = 29",
+          }
+
+          for old, new in replacements.items():
+              text = text.replace(old, new)
+
+          if "p4a.branch" in text:
+              lines = []
+              for line in text.splitlines():
+                  if line.strip().startswith("p4a.branch"):
+                      lines.append("p4a.branch = develop")
+                  else:
+                      lines.append(line)
+              text = "\n".join(lines) + "\n"
+          else:
+              text += "\np4a.branch = develop\n"
+
+          text = text.replace(
+              "# android.accept_sdk_license = False",
+              "android.accept_sdk_license = True"
+          )
+
+          path.write_text(text)
+          PY
+
+          echo "======================================"
+          echo "FINAL BUILD CONFIGURATION"
+          echo "======================================"
+
+          grep -E \
+            "^(android.api|android.minapi|android.ndk|p4a.branch|android.accept_sdk_license)" \
+            buildozer.spec || true
+
+      # ------------------------------------------------------------
+      # Verify p4a can initialize
+      # ------------------------------------------------------------
+      - name: Prepare python-for-android
+        run: |
           buildozer android p4a -- --help
 
+      # ------------------------------------------------------------
+      # Clean previous build
+      # ------------------------------------------------------------
+      - name: Clean Buildozer cache
+        run: |
+          rm -rf .buildozer
+          rm -rf bin
+
+      # ------------------------------------------------------------
+      # Build APK
+      # ------------------------------------------------------------
       - name: Build debug APK
         run: |
           set -o pipefail
+
           buildozer -v android debug 2>&1 | tee buildozer.log
 
-      - name: Show APK
+      # ------------------------------------------------------------
+      # Diagnostics
+      # ------------------------------------------------------------
+      - name: Show generated files
         if: always()
         run: |
-          echo "=== bin ==="
+          echo "======================================"
+          echo "BIN DIRECTORY"
+          echo "======================================"
+
           ls -lah bin || true
 
-          echo "=== APK ==="
-          find bin -type f -name "*.apk" -print || true
+          echo "======================================"
+          echo "APK FILES"
+          echo "======================================"
 
+          find bin \
+            -type f \
+            \( -name "*.apk" -o -name "*.aab" \) \
+            -print || true
+
+      # ------------------------------------------------------------
+      # Save complete Buildozer log
+      # ------------------------------------------------------------
       - name: Upload Buildozer log
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,8 +192,11 @@ jobs:
           name: buildozer-log
           path: buildozer.log
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 14
 
+      # ------------------------------------------------------------
+      # Upload APK
+      # ------------------------------------------------------------
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
