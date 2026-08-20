@@ -1,0 +1,113 @@
+#:kivy 2.0.0
+
+<MainScreen>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(10)
+        spacing: dp(10)
+
+        Label:
+            text: "Сканер Андроид 5.0 (HID)"
+            font_size: '20sp'
+            bold: True
+            size_hint_y: None
+            height: dp(40)
+
+        Label:
+            text: root.status_text
+            font_size: '14sp'
+            text_size: self.width, None
+            halign: 'center'
+            size_hint_y: None
+            height: dp(50)
+
+        Label:
+            text: root.count_text
+            font_size: '18sp'
+            bold: True
+            color: root.count_color
+            size_hint_y: None
+            height: dp(40)
+
+        Label:
+            text: root.batch_text
+            font_size: '14sp'
+            italic: True
+            size_hint_y: None
+            height: dp(30)
+
+        Widget:
+            # Пружина для распределения пространства
+
+        Button:
+            text: "Сохранить и продолжить"
+            font_size: '16sp'
+            bold: True
+            background_color: (0.1, 0.46, 0.82, 1)
+            size_hint_y: None
+            height: dp(50)
+            on_release: root.manager.app.save_and_continue()
+
+        # Нижняя строчка выбора пути сохранения файла
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint_y: None
+            height: dp(40)
+            spacing: dp(5)
+
+            TextInput:
+                id: path_input
+                text: root.save_path
+                readonly: True
+                multiline: False
+                font_size: '12sp'
+            
+            Button:
+                text: "Обзор..."
+                size_hint_x: None
+                width: dp(80)
+                font_size: '12sp'
+                on_release: root.choose_directory()
+
+<BatchDialogPopup>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(10)
+        spacing: dp(10)
+
+        Label:
+            text: "Введите имя партии:"
+            font_size: '14sp'
+
+        TextInput:
+            id: batch_input
+            multiline: False
+            font_size: '16sp'
+            size_hint_y: None
+            height: dp(40)
+            focus: True
+
+        Button:
+            text: "OK"
+            size_hint_y: None
+            height: dp(40)
+            on_release: root.submit()
+
+<InfoPopup>:
+    BoxLayout:
+        orientation: 'vertical'
+        padding: dp(10)
+        spacing: dp(10)
+
+        Label:
+            id: info_label
+            text: ""
+            font_size: '14sp'
+            halign: 'center'
+            text_size: self.width, None
+
+        Button:
+            text: "Закрыть"
+            size_hint_y: None
+            height: dp(40)
+            on_release: root.dismiss()
