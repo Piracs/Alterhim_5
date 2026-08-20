@@ -14,22 +14,19 @@ version = 1.0.0
 
 requirements = python3,kivy,setuptools,openpyxl
 
+
+
+fullscreen = 0
+
+android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+
 orientation = portrait
 
 p4a.branch = develop
 android.api = 36
 android.minapi = 24
 android.ndk = 29
-
-fullscreen = 0
-
-android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
-
-android.api = 33
-
-android.minapi = 24
-
-android.ndk = 25b
+p4a.bootstrap = sdl2
 
 android.accept_sdk_license = True
 
