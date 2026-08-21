@@ -37,3 +37,4 @@ android.ccache = 0
 [buildozer]
 log_level = 2
 warn_on_root = 0
+# 1
