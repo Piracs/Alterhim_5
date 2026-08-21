@@ -89,13 +89,30 @@ jobs:
 
       - name: Clean Buildozer output and caches
         run: |
+          # Remove the project build tree, but keep Buildozer's downloaded
+          # Android packages. Re-downloading large archives makes transient
+          # upstream 504 errors much more likely on an in-job retry.
           rm -rf .buildozer bin
-          rm -rf ~/.buildozer
 
       - name: Build debug APK
         run: |
           set -o pipefail
-          buildozer -v android debug 2>&1 | tee buildozer.log
+
+          for attempt in 1 2 3; do
+            echo "Build attempt ${attempt}/3"
+
+            if buildozer -v android debug 2>&1 | tee -a buildozer.log; then
+              exit 0
+            fi
+
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 20))
+              echo "Build failed, waiting ${delay}s before retrying..."
+              sleep "$delay"
+            fi
+          done
+
+          exit 1
 
       - name: Print Android SDK and NDK versions
         if: always()
