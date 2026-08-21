@@ -9,6 +9,7 @@ source.include_exts = py,kv,png,jpg,jpeg,json,ttf
 version = 1.0.0
 
 # Imports found in the repository:
+#2
 # Kivy UI/runtime plus openpyxl and its pure-Python XML dependency.
 requirements = python3,kivy==2.3.0,openpyxl==3.1.5,et_xmlfile==2.0.0
 
