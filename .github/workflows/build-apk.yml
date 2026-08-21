@@ -1,10 +1,9 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Обязательно для появления кнопки запуска вручную
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
   contents: read
