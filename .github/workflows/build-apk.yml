@@ -10,167 +10,124 @@ permissions:
   contents: read
 
 env:
+  # Prevent python-for-android from trying to open an interactive prompt.
   PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
 
 jobs:
   build-android:
-    name: Build Android APK
-    runs-on: ubuntu-latest
+    name: Build debug APK
+    runs-on: ubuntu-24.04
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # 1. Получаем проект
-      # --------------------------------------------------
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      # --------------------------------------------------
-      # 2. Python 3.14
-      # --------------------------------------------------
-      - name: Setup Python 3.14
-        uses: actions/setup-python@v7
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.11"
+          cache: pip
 
-      # --------------------------------------------------
-      # 3. Java 17
-      # --------------------------------------------------
-      - name: Setup Java 17
-        uses: actions/setup-java@v5
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: "17"
-          distribution: "temurin"
 
-      # --------------------------------------------------
-      # 4. Linux dependencies
-      # --------------------------------------------------
-      - name: Install Linux dependencies
+      - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-
           sudo apt-get install -y \
             autoconf \
             automake \
-            autopoint \
-            libtool \
-            libltdl-dev \
-            pkg-config \
-            zlib1g-dev \
-            libffi-dev \
-            libssl-dev \
+            build-essential \
             cmake \
+            gettext \
+            git \
+            libffi-dev \
+            libltdl-dev \
+            libncurses-dev \
+            libncursesw6 \
+            libssl-dev \
+            libtool \
+            pkg-config \
             unzip \
             zip \
-            gettext
+            zlib1g-dev
 
-      # --------------------------------------------------
-      # 5. Python build dependencies
-      # --------------------------------------------------
       - name: Install Python build dependencies
         run: |
           python -m pip install --upgrade pip
-
           python -m pip install \
-            "git+https://github.com/kivy/buildozer.git"
+            "buildozer==1.5.0" \
+            "Cython==0.29.37" \
+            "setuptools<70"
 
-          python -m pip install \
-            legacy-cgi \
-            setuptools \
-            "cython==0.29.34"
-
-      # --------------------------------------------------
-      # 6. Check environment
-      # --------------------------------------------------
-      - name: Check versions
+      - name: Print toolchain and project configuration
         run: |
-          echo "=========================================="
-          echo "PYTHON"
-          echo "=========================================="
+          set -euxo pipefail
+
+          echo "=== Python ==="
           python --version
           python -m pip --version
 
-          echo "=========================================="
-          echo "BUILDOZER"
-          echo "=========================================="
+          echo "=== Buildozer ==="
           buildozer --version
+          python -m pip show python-for-android || true
 
-          echo "=========================================="
-          echo "JAVA"
-          echo "=========================================="
+          echo "=== Java ==="
           java -version
+          javac -version
 
-      # --------------------------------------------------
-      # 7. Verify buildozer.spec
-      # --------------------------------------------------
-      - name: Check buildozer.spec
-        run: |
-          echo "=========================================="
-          echo "ANDROID CONFIGURATION"
-          echo "=========================================="
-
+          echo "=== Android configuration from buildozer.spec ==="
           grep -E \
-            "^(android.api|android.minapi|android.ndk|android.ndk_api|p4a.branch|p4a.bootstrap|android.archs|requirements)" \
-            buildozer.spec || true
+            '^(android.api|android.minapi|android.ndk|android.archs|p4a.bootstrap|p4a.branch|requirements)' \
+            buildozer.spec
 
-      # --------------------------------------------------
-      # 8. Clean old Buildozer data
-      # --------------------------------------------------
-      - name: Clean Buildozer
+          echo "=== Host configuration ==="
+          uname -a
+          lsb_release -a || true
+
+      - name: Clean Buildozer output and caches
         run: |
-          rm -rf .buildozer
-          rm -rf bin
+          rm -rf .buildozer bin
+          rm -rf ~/.buildozer
 
-      # --------------------------------------------------
-      # 9. Build APK
-      # --------------------------------------------------
       - name: Build debug APK
         run: |
           set -o pipefail
-
           buildozer -v android debug 2>&1 | tee buildozer.log
 
-      # --------------------------------------------------
-      # 10. Show APK
-      # --------------------------------------------------
-      - name: Find APK
+      - name: Print Android SDK and NDK versions
         if: always()
         run: |
-          echo "=========================================="
-          echo "BIN"
-          echo "=========================================="
+          set +e
 
-          ls -lah bin || true
+          echo "ANDROIDSDKVER=${ANDROIDSDKVER:-unset}"
+          echo "ANDROIDNDKVER=${ANDROIDNDKVER:-unset}"
 
-          echo "=========================================="
-          echo "APK"
-          echo "=========================================="
+          find "$HOME/.buildozer" -maxdepth 6 \
+            \( -name sdkmanager -o -name avdmanager -o -name ndk-build \) \
+            -type f -print 2>/dev/null || true
 
-          find bin \
-            -type f \
-            -name "*.apk" \
-            -print || true
+          find "$HOME/.buildozer" -maxdepth 6 -type f \
+            -path '*/source.properties' \
+            -exec sh -c 'echo "=== $1 ==="; cat "$1"' sh {} \; \
+            2>/dev/null || true
 
-      # --------------------------------------------------
-      # 11. Upload APK
-      # --------------------------------------------------
-      - name: Upload APK
+      - name: Upload APK artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: scanner-android-debug
+          name: scanner-debug-apk
           path: bin/*.apk
           if-no-files-found: error
           retention-days: 14
 
-      # --------------------------------------------------
-      # 12. Upload complete log
-      # --------------------------------------------------
-      - name: Upload Buildozer log
+      - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: buildozer-log
           path: buildozer.log
-          if-no-files-found: warn
-          retention-days: 14
+          if-no-files-found: ignore
